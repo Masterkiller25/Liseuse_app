@@ -1,6 +1,7 @@
 import requests
 from selenium import webdriver
 import io
+import os
 from bs4 import BeautifulSoup
 import graphilibs as gl
 from url import get_url
@@ -10,7 +11,7 @@ import time
 win = gl.GraphWin("Uplaoder", 200, 500)
 win.setCoords(0, 500, 200, 0)
 
-path_sd = "D:\\Utilisateur\\Marius\\python\\Liseuse\\SD\\"
+path_sd = "D:/Utilisateur/Marius/python/Liseuse_app/SD/"
 path_scan = "/scan/vf"
 results:list[dict] = []
 
@@ -68,16 +69,42 @@ def mouse_click(p:gl.Point):
             driver = webdriver.Chrome()
             url = results[i]['href'] + path_scan
             driver.get(url)
-            time.sleep(.5)
-            page_content = driver.page_source
+            for j in range(1, 10):
+                while True:
+                    time.sleep(.1)
+                    page_content = driver.page_source
+                    soup = BeautifulSoup(page_content, 'html.parser')
+                    placement = soup.find("div", {"id": "scansPlacement"}, True)
+                    if placement.find_all("img")[-1]['src'] == "https://cdn.statically.io/gh/Anime-Sama/IMG/img/autres/loading_scans.gif":
+                        continue
+                    else:
+                        break
+                ep = int(driver.execute_script('var ret = "";Array.prototype.slice.call(document.getElementById("selectChapitres").options).forEach(e => {if (e.selected) {ret = e.value;}});return ret;').split(" ")[1])
+                imgs = placement.find_all("img")
+                for img in imgs:
+                    path_dir = f"{path_sd}Scan/{results[i]['text']}/{ep}/"
+                    path_file = img['src'].split("/")[-1]
+                    path_full = os.path.join(path_dir, path_file)
+                    
+                    r = requests.get(img['src'])
+                    
+                    
+                    if not os.path.exists(f"{path_sd}Scan/{results[i]['text']}/{ep}/"):
+                        if not os.path.exists(f"{path_sd}Scan/{results[i]['text']}/"):
+                            if not os.path.exists(f"{path_sd}Scan/"):
+                                if not os.path.exists(f"{path_sd}"):
+                                    os.mkdir(f"{path_sd}")
+                                os.mkdir(f"{path_sd}Scan/")
+                            os.mkdir(f"{path_sd}Scan/{results[i]['text']}/")
+                        os.mkdir(f"{path_sd}Scan/{results[i]['text']}/{ep}/")
+                        
+                    with open(path_full, "wb") as save_file:
+                        save_file.write(r.content)
+                    
+                
+                driver.execute_script("nextChap();")
+                        
             driver.quit()
-            print(page_content)
-            soup = BeautifulSoup(page_content, 'html.parser')
-            placement = soup.find("div", {"id": "scansPlacement"}, True)
-            imgs = placement.find_all("img")
-            for img in imgs:
-                r = requests.get(img['src'])
-                Image.open(io.BytesIO(r.content)).save(f"{path_sd}Scan\\{results[i]['text']}\\{img['src'][-4]}.jpg")
         except Exception as e:
             print(f"Une erreur s'est produite : {e}")
     
